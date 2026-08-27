@@ -4,11 +4,34 @@ set -euo pipefail
 echo
 echo "=== [05] SHELL / COMANDO NTS ==="
 
-mkdir -p "$HOME/.local/bin"
+NTS_DIR="$HOME/projects/nts-platform"
+LOCAL_BIN="$HOME/.local/bin"
+NTS_SCRIPT="$LOCAL_BIN/nts"
+BASHRC="$HOME/.bashrc"
+SSH_AGENT_SOCKET="$HOME/.ssh/agent.sock"
 
-cat > "$HOME/.local/bin/nts" <<'EOF'
+mkdir -p "$LOCAL_BIN"
+
+# ------------------------------------------------------------
+# Script executável do comando NTS
+# ------------------------------------------------------------
+
+cat > "$NTS_SCRIPT" <<'EOF'
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
+
+PROJECT_DIR="$HOME/projects/nts-platform"
+
+if [ ! -d "$PROJECT_DIR/.git" ]; then
+    echo
+    echo "[ERRO] Repositório nts-platform não encontrado em:"
+    echo
+    echo "  $PROJECT_DIR"
+    echo
+    exit 1
+fi
+
+cd "$PROJECT_DIR"
 
 clear
 
@@ -27,7 +50,12 @@ git status
 if git diff --quiet && git diff --cached --quiet; then
     echo
     echo "Workspace limpo. Atualizando..."
-    git pull
+
+    if ! git pull; then
+        echo
+        echo "[AVISO] Não foi possível atualizar o repositório."
+        echo "O ambiente local foi mantido sem alterações."
+    fi
 else
     echo
     echo "Há alterações locais. Git pull não executado."
@@ -38,30 +66,86 @@ echo
 if command -v code >/dev/null 2>&1; then
     code .
 else
-    echo "VS Code não encontrado no ambiente WSL."
+    echo "[AVISO] Comando 'code' não encontrado."
+    echo "O projeto continuará aberto somente no terminal."
 fi
 EOF
 
-chmod +x "$HOME/.local/bin/nts"
+chmod +x "$NTS_SCRIPT"
 
-if ! grep -Fq 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.bashrc"; then
-    echo >> "$HOME/.bashrc"
-    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+# ------------------------------------------------------------
+# PATH
+# ------------------------------------------------------------
+
+if ! grep -Fq 'export PATH="$HOME/.local/bin:$PATH"' "$BASHRC"; then
+    echo >> "$BASHRC"
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASHRC"
 fi
+
+# ------------------------------------------------------------
+# SSH Agent
+# ------------------------------------------------------------
+
+sed -i \
+    '/# >>> DEV-BOOTSTRAP SSH-AGENT >>>/,/# <<< DEV-BOOTSTRAP SSH-AGENT <<</d' \
+    "$BASHRC"
+
+cat >> "$BASHRC" <<'EOF'
+
+# >>> DEV-BOOTSTRAP SSH-AGENT >>>
+export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
+
+if [ -f "$HOME/.ssh/id_ed25519" ]; then
+
+    if [ ! -S "$SSH_AUTH_SOCK" ]; then
+        rm -f "$SSH_AUTH_SOCK"
+        eval "$(ssh-agent -a "$SSH_AUTH_SOCK" -s)" >/dev/null
+    fi
+
+    if ! ssh-add -l >/dev/null 2>&1; then
+        ssh-add -t 8h "$HOME/.ssh/id_ed25519"
+    fi
+
+fi
+# <<< DEV-BOOTSTRAP SSH-AGENT <<<
+EOF
+
+# ------------------------------------------------------------
+# Função global NTS
+#
+# A função é necessária porque um script executado como processo
+# filho não consegue alterar permanentemente o diretório do shell
+# que o chamou.
+# ------------------------------------------------------------
 
 sed -i \
     '/# >>> DEV-BOOTSTRAP NTS >>>/,/# <<< DEV-BOOTSTRAP NTS <<</d' \
-    "$HOME/.bashrc"
+    "$BASHRC"
 
-cat >> "$HOME/.bashrc" <<'EOF'
+cat >> "$BASHRC" <<'EOF'
 
 # >>> DEV-BOOTSTRAP NTS >>>
 nts() {
-    cd "$HOME/projects/nts-platform" || return 1
+    local project_dir="$HOME/projects/nts-platform"
+
+    if [ ! -d "$project_dir/.git" ]; then
+        echo
+        echo "[ERRO] Repositório nts-platform não encontrado em:"
+        echo
+        echo "  $project_dir"
+        echo
+        return 1
+    fi
+
+    cd "$project_dir" || return 1
     "$HOME/.local/bin/nts"
 }
 # <<< DEV-BOOTSTRAP NTS <<<
 EOF
 
 echo
-echo "[OK] Comando nts configurado."
+echo "[OK] ~/.local/bin configurado."
+echo "[OK] ssh-agent configurado com validade de 8 horas."
+echo "[OK] comando global 'nts' configurado."
+echo
+echo "A configuração será carregada automaticamente em novos terminais."
