@@ -4,10 +4,6 @@ set -euo pipefail
 echo
 echo "=== [04] GIT / SSH ==="
 
-# ------------------------------------------------------------
-# Identidade Git
-# ------------------------------------------------------------
-
 CURRENT_NAME="$(git config --global user.name 2>/dev/null || true)"
 CURRENT_EMAIL="$(git config --global user.email 2>/dev/null || true)"
 
@@ -38,15 +34,10 @@ echo "[OK] Git configurado:"
 echo "     Nome  : $(git config --global user.name)"
 echo "     E-mail: $(git config --global user.email)"
 
-# ------------------------------------------------------------
-# SSH
-# ------------------------------------------------------------
-
 mkdir -p "$HOME/.ssh"
 chmod 700 "$HOME/.ssh"
 
 if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
-
     echo
     echo "==> Criando chave SSH desta estação..."
 
@@ -57,15 +48,10 @@ if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
 
     chmod 600 "$HOME/.ssh/id_ed25519"
     chmod 644 "$HOME/.ssh/id_ed25519.pub"
-
 else
     echo
     echo "[OK] Chave SSH existente encontrada."
 fi
-
-# ------------------------------------------------------------
-# SSH Agent persistente
-# ------------------------------------------------------------
 
 SSH_AGENT_SOCKET="$HOME/.ssh/agent.sock"
 
@@ -78,7 +64,6 @@ fi
 if [ ! -S "$SSH_AGENT_SOCKET" ]; then
     echo
     echo "==> Iniciando ssh-agent..."
-
     eval "$(ssh-agent -a "$SSH_AGENT_SOCKET" -s)" >/dev/null
 fi
 
@@ -90,49 +75,68 @@ if ! ssh-add -l >/dev/null 2>&1; then
     ssh-add -t 8h "$HOME/.ssh/id_ed25519"
 fi
 
-# ------------------------------------------------------------
-# Cadastro no GitHub
-# ------------------------------------------------------------
+echo
+echo "==> Verificando acesso ao GitHub..."
 
-echo
-echo "============================================================"
-echo " CHAVE SSH PÚBLICA DESTA MÁQUINA"
-echo "============================================================"
-echo
-cat "$HOME/.ssh/id_ed25519.pub"
-echo
-echo "============================================================"
-echo
-echo "Cadastre esta chave no GitHub:"
-echo
-echo "Settings -> SSH and GPG keys -> New SSH key"
-echo
-echo "Sugestão de nome: $(hostname)"
-echo
+SSH_RESULT="$(
+    ssh -o StrictHostKeyChecking=accept-new \
+        -T git@github.com 2>&1 || true
+)"
 
-while true; do
-
-    read -rp "Pressione ENTER depois de cadastrar a chave no GitHub..."
-
+if echo "$SSH_RESULT" | grep -q "successfully authenticated"; then
     echo
-    echo "==> Testando autenticação com GitHub..."
+    echo "[OK] GitHub já reconhece esta máquina."
+else
+    echo
+    echo "============================================================"
+    echo " CHAVE SSH PÚBLICA DESTA MÁQUINA"
+    echo "============================================================"
+    echo
+    cat "$HOME/.ssh/id_ed25519.pub"
+    echo
+    echo "============================================================"
+    echo
+    echo "Cadastre esta chave no GitHub:"
+    echo
+    echo "Settings -> SSH and GPG keys -> New SSH key"
+    echo
+    echo "Sugestão de nome: $(hostname)"
+    echo
 
-    SSH_RESULT="$(ssh \
-        -o StrictHostKeyChecking=accept-new \
-        -T git@github.com 2>&1 || true)"
+    while true; do
+        read -rp "Pressione ENTER depois de cadastrar a chave no GitHub..."
 
-    if echo "$SSH_RESULT" | grep -q "successfully authenticated"; then
         echo
-        echo "[OK] GitHub reconheceu esta máquina."
-        break
-    fi
+        echo "==> Testando autenticação..."
+
+        SSH_RESULT="$(
+            ssh -o StrictHostKeyChecking=accept-new \
+                -T git@github.com 2>&1 || true
+        )"
+
+        if echo "$SSH_RESULT" | grep -q "successfully authenticated"; then
+            echo
+            echo "[OK] GitHub reconheceu esta máquina."
+            break
+        fi
+
+        echo
+        echo "[PENDENTE] GitHub ainda não reconheceu a chave."
+        echo
+        echo "$SSH_RESULT"
+        echo
+    done
+fi
+
+DEV_BOOTSTRAP_DIR="$HOME/projects/dev-bootstrap"
+
+if [ -d "$DEV_BOOTSTRAP_DIR/.git" ]; then
+    git -C "$DEV_BOOTSTRAP_DIR" remote set-url origin \
+        git@github.com:leonardoreis/dev-bootstrap.git
 
     echo
-    echo "[PENDENTE] GitHub ainda não reconheceu a chave."
-    echo
-    echo "$SSH_RESULT"
-    echo
-done
+    echo "[OK] dev-bootstrap configurado para usar SSH."
+fi
 
 echo
 echo "[OK] Git / SSH completamente configurados."

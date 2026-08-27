@@ -4,7 +4,8 @@ set -euo pipefail
 echo
 echo "=== [03] DOCKER ENGINE ==="
 
-if command -v docker >/dev/null 2>&1; then
+if command -v docker >/dev/null 2>&1 &&
+   docker compose version >/dev/null 2>&1; then
     echo "Docker já instalado:"
     docker --version
 else

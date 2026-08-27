@@ -8,13 +8,8 @@ NTS_DIR="$HOME/projects/nts-platform"
 LOCAL_BIN="$HOME/.local/bin"
 NTS_SCRIPT="$LOCAL_BIN/nts"
 BASHRC="$HOME/.bashrc"
-SSH_AGENT_SOCKET="$HOME/.ssh/agent.sock"
 
 mkdir -p "$LOCAL_BIN"
-
-# ------------------------------------------------------------
-# Script executável do comando NTS
-# ------------------------------------------------------------
 
 cat > "$NTS_SCRIPT" <<'EOF'
 #!/usr/bin/env bash
@@ -73,18 +68,10 @@ EOF
 
 chmod +x "$NTS_SCRIPT"
 
-# ------------------------------------------------------------
-# PATH
-# ------------------------------------------------------------
-
 if ! grep -Fq 'export PATH="$HOME/.local/bin:$PATH"' "$BASHRC"; then
     echo >> "$BASHRC"
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASHRC"
 fi
-
-# ------------------------------------------------------------
-# SSH Agent
-# ------------------------------------------------------------
 
 sed -i \
     '/# >>> DEV-BOOTSTRAP SSH-AGENT >>>/,/# <<< DEV-BOOTSTRAP SSH-AGENT <<</d' \
@@ -97,26 +84,22 @@ export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
 
 if [ -f "$HOME/.ssh/id_ed25519" ]; then
 
+    if [ -S "$SSH_AUTH_SOCK" ]; then
+        if ! ssh-add -l >/dev/null 2>&1; then
+            rm -f "$SSH_AUTH_SOCK"
+        fi
+    fi
+
     if [ ! -S "$SSH_AUTH_SOCK" ]; then
-        rm -f "$SSH_AUTH_SOCK"
         eval "$(ssh-agent -a "$SSH_AUTH_SOCK" -s)" >/dev/null
     fi
 
     if ! ssh-add -l >/dev/null 2>&1; then
         ssh-add -t 8h "$HOME/.ssh/id_ed25519"
     fi
-
 fi
 # <<< DEV-BOOTSTRAP SSH-AGENT <<<
 EOF
-
-# ------------------------------------------------------------
-# Função global NTS
-#
-# A função é necessária porque um script executado como processo
-# filho não consegue alterar permanentemente o diretório do shell
-# que o chamou.
-# ------------------------------------------------------------
 
 sed -i \
     '/# >>> DEV-BOOTSTRAP NTS >>>/,/# <<< DEV-BOOTSTRAP NTS <<</d' \

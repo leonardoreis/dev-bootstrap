@@ -31,7 +31,8 @@ sudo apt install -y \
     zip \
     jq \
     tree \
-    util-linux-extra
+    util-linux-extra \
+    openssh-client
 
 mkdir -p "$HOME/projects"
 mkdir -p "$HOME/.local/bin"
