@@ -24,9 +24,9 @@ warn() {
 
 check_command() {
     if command -v "$1" >/dev/null 2>&1; then
-        ok "$1"
+        ok "Ferramenta: $1"
     else
-        fail "$1"
+        fail "Ferramenta ausente: $1"
     fi
 }
 
@@ -40,14 +40,16 @@ check_command jq
 
 echo
 
-if [ -n "$(git config --global user.name 2>/dev/null)" ]; then
-    ok "Git user.name: $(git config --global user.name)"
+GIT_USER="$(git config --global user.name 2>/dev/null || true)"
+if [ -n "$GIT_USER" ]; then
+    ok "Git user.name: $GIT_USER"
 else
     fail "Git user.name não configurado"
 fi
 
-if [ -n "$(git config --global user.email 2>/dev/null)" ]; then
-    ok "Git user.email: $(git config --global user.email)"
+GIT_EMAIL="$(git config --global user.email 2>/dev/null || true)"
+if [ -n "$GIT_EMAIL" ]; then
+    ok "Git user.email: $GIT_EMAIL"
 else
     fail "Git user.email não configurado"
 fi
@@ -55,13 +57,13 @@ fi
 if [ -f "$HOME/.ssh/id_ed25519" ]; then
     ok "Chave SSH privada encontrada"
 else
-    fail "Chave SSH privada não encontrada"
+    fail "Chave SSH privada não encontrada ($HOME/.ssh/id_ed25519)"
 fi
 
 if [ -f "$HOME/.ssh/id_ed25519.pub" ]; then
     ok "Chave SSH pública encontrada"
 else
-    fail "Chave SSH pública não encontrada"
+    fail "Chave SSH pública não encontrada ($HOME/.ssh/id_ed25519.pub)"
 fi
 
 export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
@@ -69,13 +71,13 @@ export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
 if [ -S "$SSH_AUTH_SOCK" ]; then
     ok "Socket do ssh-agent disponível"
 else
-    fail "Socket do ssh-agent não encontrado"
+    fail "Socket do ssh-agent não encontrado em $SSH_AUTH_SOCK"
 fi
 
 if ssh-add -l >/dev/null 2>&1; then
-    ok "Chave carregada no ssh-agent"
+    ok "Chave SSH carregada na memória do agente"
 else
-    fail "Nenhuma chave carregada no ssh-agent"
+    fail "Nenhuma chave ativa carregada no ssh-agent"
 fi
 
 SSH_RESULT="$(
@@ -85,64 +87,58 @@ SSH_RESULT="$(
 )"
 
 if echo "$SSH_RESULT" | grep -q "successfully authenticated"; then
-    ok "Autenticação SSH no GitHub"
+    ok "Autenticação SSH no GitHub aceita"
 else
-    fail "Autenticação SSH no GitHub"
+    fail "Autenticação SSH no GitHub recusada"
 fi
 
 echo
 
-if systemctl is-active --quiet docker; then
-    ok "Docker daemon ativo"
+if systemctl is-active --quiet docker 2>/dev/null || service docker status >/dev/null 2>&1; then
+    ok "Serviço Docker daemon ativo"
 else
-    fail "Docker daemon inativo"
+    fail "Serviço Docker daemon inativo"
 fi
 
 if docker compose version >/dev/null 2>&1; then
-    ok "Docker Compose"
+    ok "Plugin Docker Compose operacional"
 else
-    fail "Docker Compose"
+    fail "Plugin Docker Compose não disponível"
 fi
 
-if getent group docker | grep -qw "$USER"; then
-    ok "Usuário '$USER' configurado no grupo docker"
+if getent group docker 2>/dev/null | grep -qw "$USER"; then
+    ok "Usuário '$USER' associado ao grupo 'docker'"
 else
-    fail "Usuário '$USER' não pertence ao grupo docker"
+    fail "Usuário '$USER' NÃO pertence ao grupo 'docker'"
 fi
 
 if [ -x "$HOME/.local/bin/nts" ]; then
-    ok "Comando nts instalado"
+    ok "Executável nts instalado em ~/.local/bin/nts"
 else
-    fail "Comando nts não encontrado"
+    fail "Executável nts não encontrado ou sem permissão de execução"
 fi
 
 if [ -d "$HOME/projects/nts-platform/.git" ]; then
-    ok "Repositório nts-platform encontrado"
+    ok "Repositório nts-platform presente"
 
-    NTS_REMOTE="$(
-        git -C "$HOME/projects/nts-platform" remote get-url origin \
-        2>/dev/null || true
-    )"
+    NTS_REMOTE="$(git -C "$HOME/projects/nts-platform" remote get-url origin 2>/dev/null || true)"
 
     if [[ "$NTS_REMOTE" == git@github.com:* ]]; then
-        ok "nts-platform usando remoto SSH"
+        ok "nts-platform usa SSH como origem remota"
     else
-        warn "nts-platform não está usando remoto SSH: $NTS_REMOTE"
+        warn "nts-platform não utiliza origem SSH: $NTS_REMOTE"
     fi
 else
-    fail "Repositório nts-platform não encontrado"
+    fail "Repositório nts-platform não foi clonado"
 fi
 
 if [ -d "$HOME/projects/dev-bootstrap/.git" ]; then
-    DEV_REMOTE="$(
-        git -C "$HOME/projects/dev-bootstrap" remote get-url origin \
-        2>/dev/null || true
-    )"
+    DEV_REMOTE="$(git -C "$HOME/projects/dev-bootstrap" remote get-url origin 2>/dev/null || true)"
 
     if [[ "$DEV_REMOTE" == git@github.com:* ]]; then
-        ok "dev-bootstrap usando remoto SSH"
+        ok "dev-bootstrap usa SSH como origem remota"
     else
-        warn "dev-bootstrap não está usando remoto SSH: $DEV_REMOTE"
+        warn "dev-bootstrap não utiliza origem SSH: $DEV_REMOTE"
     fi
 else
     fail "Repositório dev-bootstrap não encontrado"
@@ -150,17 +146,16 @@ fi
 
 echo
 echo "============================================================"
-echo " Resultado da validação"
+echo " Resultado Final da Validação"
 echo "============================================================"
-echo
 echo " Falhas : $FAILURES"
 echo " Avisos : $WARNINGS"
 echo
 
 if [ "$FAILURES" -eq 0 ]; then
-    echo "[OK] Ambiente validado com sucesso."
+    echo "[OK] O ambiente atende a todos os requisitos de segurança e execução."
     exit 0
 else
-    echo "[FALHA] O ambiente possui pendências."
+    echo "[FALHA] O ambiente possui dependências pendentes de ajuste."
     exit 1
 fi
