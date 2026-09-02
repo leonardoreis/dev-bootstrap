@@ -4,13 +4,13 @@ set -euo pipefail
 echo
 echo "=== [05] SHELL / COMANDO NTS ==="
 
-NTS_DIR="$HOME/projects/nts-platform"
 LOCAL_BIN="$HOME/.local/bin"
 NTS_SCRIPT="$LOCAL_BIN/nts"
 BASHRC="$HOME/.bashrc"
 
 mkdir -p "$LOCAL_BIN"
 
+# Criação robusta do script nts
 cat > "$NTS_SCRIPT" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -18,11 +18,7 @@ set -euo pipefail
 PROJECT_DIR="$HOME/projects/nts-platform"
 
 if [ ! -d "$PROJECT_DIR/.git" ]; then
-    echo
-    echo "[ERRO] Repositório nts-platform não encontrado em:"
-    echo
-    echo "  $PROJECT_DIR"
-    echo
+    echo "[ERRO] Repositório nts-platform não encontrado em: $PROJECT_DIR" >&2
     exit 1
 fi
 
@@ -39,51 +35,49 @@ cat <<'BANNER'
 BANNER
 
 echo
-
 git status
 
 if git diff --quiet && git diff --cached --quiet; then
     echo
-    echo "Workspace limpo. Atualizando..."
-
-    if ! git pull; then
-        echo
-        echo "[AVISO] Não foi possível atualizar o repositório."
-        echo "O ambiente local foi mantido sem alterações."
+    echo "Workspace limpo. Sincronizando com remote..."
+    if ! git pull --rebase; then
+        echo "[AVISO] Falha ao atualizar via git pull. Mantendo cópia local intacta."
     fi
 else
     echo
-    echo "Há alterações locais. Git pull não executado."
+    echo "[INFO] Alterações locais detectadas. A atualização (git pull) foi ignorada."
 fi
 
 echo
-
 if command -v code >/dev/null 2>&1; then
     code .
 else
-    echo "[AVISO] Comando 'code' não encontrado."
-    echo "O projeto continuará aberto somente no terminal."
+    echo "[AVISO] Comando 'code' (VS Code) não encontrado no PATH."
 fi
 EOF
 
 chmod +x "$NTS_SCRIPT"
 
-if ! grep -Fq 'export PATH="$HOME/.local/bin:$PATH"' "$BASHRC"; then
-    echo >> "$BASHRC"
-    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASHRC"
-fi
+# Injeção idempotente no ~/.bashrc
+touch "$BASHRC"
 
+# Limpa blocos antigos do dev-bootstrap para evitar duplicatas
 sed -i \
-    '/# >>> DEV-BOOTSTRAP SSH-AGENT >>>/,/# <<< DEV-BOOTSTRAP SSH-AGENT <<</d' \
+    '/# >>> DEV-BOOTSTRAP PATH >>>/,/# <<< DEV-BOOTSTRAP PATH <<</d; /# >>> DEV-BOOTSTRAP SSH-AGENT >>>/,/# <<< DEV-BOOTSTRAP SSH-AGENT <<</d; /# >>> DEV-BOOTSTRAP NTS >>>/,/# <<< DEV-BOOTSTRAP NTS <<</d' \
     "$BASHRC"
 
 cat >> "$BASHRC" <<'EOF'
+
+# >>> DEV-BOOTSTRAP PATH >>>
+if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+# <<< DEV-BOOTSTRAP PATH <<<
 
 # >>> DEV-BOOTSTRAP SSH-AGENT >>>
 export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
 
 if [ -f "$HOME/.ssh/id_ed25519" ]; then
-
     if [ -S "$SSH_AUTH_SOCK" ]; then
         if ! ssh-add -l >/dev/null 2>&1; then
             rm -f "$SSH_AUTH_SOCK"
@@ -95,28 +89,17 @@ if [ -f "$HOME/.ssh/id_ed25519" ]; then
     fi
 
     if ! ssh-add -l >/dev/null 2>&1; then
-        ssh-add -t 8h "$HOME/.ssh/id_ed25519"
+        ssh-add -t 8h "$HOME/.ssh/id_ed25519" 2>/dev/null || true
     fi
 fi
 # <<< DEV-BOOTSTRAP SSH-AGENT <<<
-EOF
-
-sed -i \
-    '/# >>> DEV-BOOTSTRAP NTS >>>/,/# <<< DEV-BOOTSTRAP NTS <<</d' \
-    "$BASHRC"
-
-cat >> "$BASHRC" <<'EOF'
 
 # >>> DEV-BOOTSTRAP NTS >>>
 nts() {
     local project_dir="$HOME/projects/nts-platform"
 
     if [ ! -d "$project_dir/.git" ]; then
-        echo
-        echo "[ERRO] Repositório nts-platform não encontrado em:"
-        echo
-        echo "  $project_dir"
-        echo
+        echo "[ERRO] Repositório nts-platform não encontrado em: $project_dir" >&2
         return 1
     fi
 
@@ -127,8 +110,6 @@ nts() {
 EOF
 
 echo
-echo "[OK] ~/.local/bin configurado."
-echo "[OK] ssh-agent configurado com validade de 8 horas."
-echo "[OK] comando global 'nts' configurado."
-echo
-echo "A configuração será carregada automaticamente em novos terminais."
+echo "[OK] ~/.local/bin adicionado ao PATH."
+echo "[OK] Automação do ssh-agent atualizada no ~/.bashrc."
+echo "[OK] Função global 'nts' registrada."
