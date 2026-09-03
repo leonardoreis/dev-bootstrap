@@ -2,7 +2,7 @@
 set -euo pipefail
 
 echo
-echo "=== [05] SHELL / COMANDO NTS ==="
+echo "=== [05] SHELL / ATALHO NTS ==="
 
 LOCAL_BIN="$HOME/.local/bin"
 NTS_SCRIPT="$LOCAL_BIN/nts"
@@ -10,7 +10,7 @@ BASHRC="$HOME/.bashrc"
 
 mkdir -p "$LOCAL_BIN"
 
-# Criação robusta do script nts
+# Criação do executável nts
 cat > "$NTS_SCRIPT" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -40,28 +40,25 @@ git status
 if git diff --quiet && git diff --cached --quiet; then
     echo
     echo "Workspace limpo. Sincronizando com remote..."
-    if ! git pull --rebase; then
-        echo "[AVISO] Falha ao atualizar via git pull. Mantendo cópia local intacta."
-    fi
+    git pull --rebase || echo "[AVISO] Falha ao atualizar via git pull."
 else
     echo
-    echo "[INFO] Alterações locais detectadas. A atualização (git pull) foi ignorada."
+    echo "[INFO] Alterações locais detectadas. Sincronização ignorada."
 fi
 
 echo
 if command -v code >/dev/null 2>&1; then
     code .
 else
-    echo "[AVISO] Comando 'code' (VS Code) não encontrado no PATH."
+    echo "[AVISO] VS Code (comando 'code') não encontrado no PATH."
 fi
 EOF
 
 chmod +x "$NTS_SCRIPT"
 
-# Injeção idempotente no ~/.bashrc
+# Injeção limpa e idempotente no ~/.bashrc
 touch "$BASHRC"
 
-# Limpa blocos antigos do dev-bootstrap para evitar duplicatas
 sed -i \
     '/# >>> DEV-BOOTSTRAP PATH >>>/,/# <<< DEV-BOOTSTRAP PATH <<</d; /# >>> DEV-BOOTSTRAP SSH-AGENT >>>/,/# <<< DEV-BOOTSTRAP SSH-AGENT <<</d; /# >>> DEV-BOOTSTRAP NTS >>>/,/# <<< DEV-BOOTSTRAP NTS <<</d' \
     "$BASHRC"
@@ -71,6 +68,10 @@ cat >> "$BASHRC" <<'EOF'
 # >>> DEV-BOOTSTRAP PATH >>>
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
     export PATH="$HOME/.local/bin:$PATH"
+fi
+
+if [[ ":$PATH:" != *":/usr/local/go/bin:"* ]]; then
+    export PATH="/usr/local/go/bin:$PATH"
 fi
 # <<< DEV-BOOTSTRAP PATH <<<
 
@@ -96,20 +97,9 @@ fi
 
 # >>> DEV-BOOTSTRAP NTS >>>
 nts() {
-    local project_dir="$HOME/projects/nts-platform"
-
-    if [ ! -d "$project_dir/.git" ]; then
-        echo "[ERRO] Repositório nts-platform não encontrado em: $project_dir" >&2
-        return 1
-    fi
-
-    cd "$project_dir" || return 1
     "$HOME/.local/bin/nts"
 }
 # <<< DEV-BOOTSTRAP NTS <<<
 EOF
 
-echo
-echo "[OK] ~/.local/bin adicionado ao PATH."
-echo "[OK] Automação do ssh-agent atualizada no ~/.bashrc."
-echo "[OK] Função global 'nts' registrada."
+echo "[OK] Atalho 'nts' e variáveis inseridas de forma limpa no ~/.bashrc."
