@@ -70,17 +70,9 @@ run_script "06-validate.sh"
 
 echo
 echo "============================================================"
-echo "          BOOTSTRAP CONCLUÍDO COM SUCESSO!"
+echo "      INSTALAÇÃO CONCLUÍDA! INICIANDO O AMBIENTE NTS...     "
 echo "============================================================"
-echo
-echo " Para que o grupo Docker e as rotas de rede funcionem 100%,"
-echo " execute o reinício do WSL no seu PowerShell no Windows:"
-echo
-echo "   1) Feche este terminal do Ubuntu."
-echo "   2) No PowerShell do Windows, rode:"
-echo "      wsl --shutdown"
-echo "   3) Abra o Ubuntu novamente e rode o atalho do seu projeto:"
-echo "      nts"
-echo
-echo "============================================================"
-echo
+sleep 2
+
+# Executa imediatamente o atalho global instalado
+exec /usr/local/bin/nts
