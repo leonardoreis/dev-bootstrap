@@ -4,27 +4,10 @@ set -euo pipefail
 echo
 echo "=== [01] BASE DO SISTEMA ==="
 
-# Validação do systemd no WSL
-if ! systemctl is-system-running >/dev/null 2>&1; then
-    # Checagem adicional: em boot frio do WSL, systemctl pode retornar "degraded"
-    SYS_STATE="$(systemctl is-system-running 2>/dev/null || true)"
-    if [ "$SYS_STATE" != "degraded" ] && [ "$SYS_STATE" != "running" ]; then
-        echo "[ERRO] systemd não está ativo no ambiente WSL." >&2
-        echo
-        echo "Configure /etc/wsl.conf incluindo:"
-        echo
-        echo "[boot]"
-        echo "systemd=true"
-        echo
-        echo "Depois reinicie o WSL no PowerShell com: wsl --shutdown"
-        exit 1
-    fi
-fi
-
-echo "==> Atualizando listas de pacotes..."
+echo "==> Atualizando listas de pacotes apt..."
 sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
 
-echo "==> Instalando pacotes base..."
+echo "==> Instalando ferramentas essenciais do sistema..."
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
@@ -40,12 +23,10 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     util-linux-extra \
     openssh-client
 
-# Criação de diretórios estruturais
 mkdir -p "$HOME/projects"
 mkdir -p "$HOME/.local/bin"
 mkdir -p "$HOME/.ssh"
-
 chmod 700 "$HOME/.ssh"
 
 echo
-echo "[OK] Base Linux instalada e configurada com sucesso."
+echo "[OK] Base Linux instalada com sucesso."
