@@ -4,14 +4,11 @@ set -euo pipefail
 echo
 echo "=== [05] SHELL / ATALHO NTS ==="
 
-LOCAL_BIN="$HOME/.local/bin"
-NTS_SCRIPT="$LOCAL_BIN/nts"
+NTS_GLOBAL_BIN="/usr/local/bin/nts"
 BASHRC="$HOME/.bashrc"
 
-mkdir -p "$LOCAL_BIN"
-
-# Criação do executável nts
-cat > "$NTS_SCRIPT" <<'EOF'
+# Criação do executável global nts em /usr/local/bin
+sudo bash -c "cat > '$NTS_GLOBAL_BIN'" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -48,28 +45,25 @@ fi
 
 echo
 if command -v code >/dev/null 2>&1; then
+    echo "Abrindo o VS Code no diretório do projeto..."
     code .
 else
     echo "[AVISO] VS Code (comando 'code') não encontrado no PATH."
 fi
 EOF
 
-chmod +x "$NTS_SCRIPT"
+sudo chmod +x "$NTS_GLOBAL_BIN"
 
-# Injeção limpa e idempotente no ~/.bashrc
+# Injeção no ~/.bashrc para sessões futuras
 touch "$BASHRC"
 
 sed -i \
-    '/# >>> DEV-BOOTSTRAP PATH >>>/,/# <<< DEV-BOOTSTRAP PATH <<</d; /# >>> DEV-BOOTSTRAP SSH-AGENT >>>/,/# <<< DEV-BOOTSTRAP SSH-AGENT <<</d; /# >>> DEV-BOOTSTRAP NTS >>>/,/# <<< DEV-BOOTSTRAP NTS <<</d' \
+    '/# >>> DEV-BOOTSTRAP PATH >>>/,/# <<< DEV-BOOTSTRAP PATH <<</d; /# >>> DEV-BOOTSTRAP SSH-AGENT >>>/,/# <<< DEV-BOOTSTRAP SSH-AGENT <<</d' \
     "$BASHRC"
 
 cat >> "$BASHRC" <<'EOF'
 
 # >>> DEV-BOOTSTRAP PATH >>>
-if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-    export PATH="$HOME/.local/bin:$PATH"
-fi
-
 if [[ ":$PATH:" != *":/usr/local/go/bin:"* ]]; then
     export PATH="/usr/local/go/bin:$PATH"
 fi
@@ -94,12 +88,6 @@ if [ -f "$HOME/.ssh/id_ed25519" ]; then
     fi
 fi
 # <<< DEV-BOOTSTRAP SSH-AGENT <<<
-
-# >>> DEV-BOOTSTRAP NTS >>>
-nts() {
-    "$HOME/.local/bin/nts"
-}
-# <<< DEV-BOOTSTRAP NTS <<<
 EOF
 
-echo "[OK] Atalho 'nts' e variáveis inseridas de forma limpa no ~/.bashrc."
+echo "[OK] Atalho global 'nts' instalado em /usr/local/bin com sucesso."
