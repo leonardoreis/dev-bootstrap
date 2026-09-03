@@ -42,11 +42,9 @@ run_script "03-docker.sh"
 # ------------------------------------------------------------
 # NTS Platform
 # ------------------------------------------------------------
-
 echo
 echo "=== NTS PLATFORM ==="
 
-# Garante o uso do socket SSH Agent caso esteja ativo
 SSH_AGENT_SOCKET="$HOME/.ssh/agent.sock"
 if [ -S "$SSH_AGENT_SOCKET" ]; then
     export SSH_AUTH_SOCK="$SSH_AGENT_SOCKET"
@@ -55,11 +53,13 @@ fi
 mkdir -p "$HOME/projects"
 
 if [ -d "$NTS_DIR/.git" ]; then
-    echo "[OK] Repositório nts-platform já existente."
+    echo "[OK] Repositório nts-platform já existe. Sincronizando..."
+    git -C "$NTS_DIR" fetch origin
+    git -C "$NTS_DIR" reset --hard origin/main 2>/dev/null || true
 else
     echo "==> Clonando nts-platform..."
     if ! git clone git@github.com:leonardoreis/nts-platform.git "$NTS_DIR"; then
-        echo "[ERRO] Falha ao clonar o nts-platform. Verifique as chaves SSH no GitHub." >&2
+        echo "[ERRO] Falha ao clonar o nts-platform. Adicione a chave SSH gerada ao seu GitHub e reexecute o script." >&2
         exit 1
     fi
     echo "[OK] nts-platform clonado com sucesso."
@@ -70,18 +70,17 @@ run_script "06-validate.sh"
 
 echo
 echo "============================================================"
-echo " Bootstrap concluído."
+echo "          BOOTSTRAP CONCLUÍDO COM SUCESSO!"
 echo "============================================================"
 echo
-
-NTS_BIN="$HOME/.local/bin/nts"
-
-if [ -x "$NTS_BIN" ]; then
-    echo "Iniciando NTS Platform..."
-    echo
-    cd "$NTS_DIR"
-    "$NTS_BIN"
-else
-    echo "[AVISO] O executável $NTS_BIN não foi encontrado."
-    echo "Inicie manualmente com: nts"
-fi
+echo " Para que o grupo Docker e as rotas de rede funcionem 100%,"
+echo " execute o reinício do WSL no seu PowerShell no Windows:"
+echo
+echo "   1) Feche este terminal do Ubuntu."
+echo "   2) No PowerShell do Windows, rode:"
+echo "      wsl --shutdown"
+echo "   3) Abra o Ubuntu novamente e rode o atalho do seu projeto:"
+echo "      nts"
+echo
+echo "============================================================"
+echo
