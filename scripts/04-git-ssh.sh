@@ -13,7 +13,7 @@ mkdir -p "$SSH_DIR"
 chmod 700 "$SSH_DIR"
 
 # ------------------------------------------------------------
-# 1. Identidade Git Global (Pergunta se estiver vazio)
+# 1. Identidade Git Global
 # ------------------------------------------------------------
 
 CURRENT_NAME="$(git config --global user.name || true)"
@@ -60,7 +60,7 @@ chmod 600 "$SSH_KEY"
 chmod 644 "$PUB_KEY"
 
 # ------------------------------------------------------------
-# 3. Gerenciamento do SSH Agent Persistente
+# 3. SSH Agent Persistente na Sessão
 # ------------------------------------------------------------
 
 if [ -S "$AGENT_SOCK" ]; then
@@ -79,23 +79,24 @@ fi
 
 export SSH_AUTH_SOCK="$AGENT_SOCK"
 
-# Validação do Fingerprint para evitar duplicatas no agente
-if ssh-add -l 2>/dev/null | grep -q "$(ssh-keygen -lf "$PUB_KEY" | awk '{print $2}')"; then
-    echo "[OK] Chave SSH já carregada no ssh-agent."
-else
-    echo "==> Carregando chave SSH no agente por 8 horas..."
-    ssh-add -t 8h "$SSH_KEY"
-fi
+# Garante a injeção da nova chave no agente
+ssh-add "$SSH_KEY" 2>/dev/null || true
 
 # ------------------------------------------------------------
-# 4. Teste de Conexão com Loop Interativo
+# 4. Teste de Conexão GitHub (Forçando o envio da chave exata)
 # ------------------------------------------------------------
 
 echo
 echo "==> Testando autenticação SSH com GitHub..."
 
 check_github() {
-    ssh -o StrictHostKeyChecking=accept-new -T git@github.com 2>&1 | grep -qi "successfully authenticated"
+    # -i $SSH_KEY: Força usar o arquivo gerado
+    # -o IdentitiesOnly=yes: Ignora outras chaves presas em memória
+    # -o StrictHostKeyChecking=accept-new: Adiciona o GitHub ao known_hosts automaticamente
+    ssh -i "$SSH_KEY" \
+        -o IdentitiesOnly=yes \
+        -o StrictHostKeyChecking=accept-new \
+        -T git@github.com 2>&1 | grep -qiE "(successfully authenticated|hi )"
 }
 
 if check_github; then
