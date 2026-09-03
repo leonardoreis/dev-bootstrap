@@ -4,7 +4,7 @@ set -euo pipefail
 # ============================================================
 # PASSO 0: Correção Imediata de DNS (Garantia para Tailscale/VPN)
 # ============================================================
-echo "==> [Passo 0/4] Configurando DNS fixo para evitar travamentos..."
+echo "==> [Passo 0/4] Configurando DNS fixo..."
 
 sudo bash -c 'cat <<EOF > /etc/wsl.conf
 [boot]
@@ -70,7 +70,6 @@ if [ ! -f "$BOOTSTRAP_SCRIPT" ]; then
     exit 1
 fi
 
-# Remove o install.sh temporário caso tenha sido salvo no diretório atual
 if [ -f "./install.sh" ] && [ "$(realpath ./install.sh)" != "$(realpath "$INSTALL_DIR/install.sh" 2>/dev/null)" ]; then
     rm -f ./install.sh
 fi
